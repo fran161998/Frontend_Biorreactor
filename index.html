@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CaféMonitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      :root {
+        --bg: #0f1720;
+        --card: #0b1220;
+        --surface: rgba(255, 255, 255, 0.04);
+        --accent: #f59e0b;
+        --accent-soft: rgba(245, 158, 11, 0.12);
+        --text: #e6eef6;
+        --muted: #94a3b8;
+        --success: #16a34a;
+        --warning: #f59e0b;
+        --danger: #dc2626;
+        --radius: 20px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: 'DM Sans', system-ui, sans-serif;
+        background: radial-gradient(circle at top, rgba(245, 158, 11, 0.14), transparent 32%), linear-gradient(180deg, #111827 0%, #020617 100%);
+        color: var(--text);
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 32%);
+      }
+
+      .app-shell {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+
+      header.topbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 18px 18px 4px;
+      }
+
+      .site-brand {
+        font-family: 'Playfair Display', serif;
+        font-size: clamp(1.6rem, 2vw, 2.4rem);
+        margin: 0;
+      }
+
+      .header-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+        flex-wrap: wrap;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        background: rgba(22, 163, 74, 0.14);
+        color: var(--success);
+        font-size: 0.92rem;
+        font-weight: 700;
+        padding: 8px 12px;
+      }
+
+      .pill .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--success);
+        box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.12);
+      }
+
+      .status-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .status-row span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--success);
+      }
+
+      main.container {
+        flex: 1;
+        padding: 16px 18px 96px;
+      }
+
+      .section {
+        display: none;
+        gap: 16px;
+        animation: fadeIn 0.5s ease;
+      }
+
+      .section.active {
+        display: grid;
+      }
+
+      .monitor-grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .stats-grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .stat-card {
+        background: var(--card);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: var(--radius);
+        padding: 20px;
+        min-height: 180px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .stat-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .stat-icon {
+        font-size: 2.4rem;
+      }
+
+      .stat-value {
+        font-size: clamp(2.8rem, 4vw, 4rem);
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .stat-label,
+      .stat-range {
+        font-size: 0.98rem;
+        color: var(--muted);
+      }
+
+      .monitor-meta {
+        display: grid;
+        gap: 8px;
+        background: var(--card);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: var(--radius);
+        padding: 18px;
+      }
+
+      .monitor-meta div {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        font-size: 0.96rem;
+      }
+
+      .monitor-meta strong {
+        color: var(--text);
+      }
+
+      .alerts-panel,
+      .history-panel {
+        display: grid;
+        gap: 16px;
+      }
+
+      .alert-card {
+        background: var(--card);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 18px;
+        border-radius: var(--radius);
+      }
+
+      .alert-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .alert-title {
+        font-size: 1rem;
+        margin: 0 0 8px;
+      }
+
+      .alert-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .badge {
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-weight: 700;
+        font-size: 0.82rem;
+      }
+
+      .badge.attention {
+        background: rgba(245, 158, 11, 0.16);
+        color: #f59e0b;
+      }
+
+      .badge.critical {
+        background: rgba(220, 38, 38, 0.16);
+        color: #dc2626;
+      }
+
+      .history-panel {
+        display: grid;
+        gap: 18px;
+      }
+
+      .history-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .history-actions button {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 12px 16px;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: transform 0.2s ease, background 0.2s ease;
+      }
+
+      .history-actions button.active,
+      .history-actions button:hover {
+        background: var(--accent-soft);
+        transform: translateY(-1px);
+      }
+
+      .history-card {
+        background: var(--card);
+        border-radius: var(--radius);
+        padding: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .chart-wrapper {
+        min-height: 340px;
+      }
+
+      .chart-container {
+        position: relative;
+        min-height: 340px;
+      }
+
+      .bottom-nav {
+        position: fixed;
+        inset: auto 0 0 0;
+        background: rgba(11, 18, 32, 0.98);
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 10px 12px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        backdrop-filter: blur(14px);
+      }
+
+      .tab-button {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 16px;
+        color: var(--text);
+        padding: 14px 12px;
+        font-size: 0.95rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: background 0.2s ease, border-color 0.2s ease;
+      }
+
+      .tab-button.active {
+        background: rgba(245, 158, 11, 0.16);
+        border-color: rgba(245, 158, 11, 0.26);
+      }
+
+      .tab-badge {
+        display: inline-flex;
+        min-width: 20px;
+        justify-content: center;
+        align-items: center;
+        padding: 0 6px;
+        border-radius: 999px;
+        background: var(--danger);
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 700;
+      }
+
+      .tab-badge.hidden {
+        display: none;
+      }
+
+      .empty-state {
+        background: var(--card);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: var(--radius);
+        padding: 28px;
+        text-align: center;
+        color: var(--muted);
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (min-width: 760px) {
+        .monitor-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .stats-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+
+      @media (min-width: 1080px) {
+        .bottom-nav {
+          max-width: 900px;
+          margin: 0 auto;
+          left: 0;
+          right: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1 class="site-brand">☕ CaféMonitor</h1>
+          <div class="status-row">
+            <span><span class="status-dot"></span> EN VIVO</span>
+            <span id="session-label">Sesión #0</span>
+          </div>
+        </div>
+        <div class="pill"><span class="dot"></span> Actualizando cada 15s</div>
+      </header>
+
+      <main class="container">
+        <section id="monitor-section" class="section active">
+          <div class="stats-grid">
+            <article class="stat-card">
+              <div class="stat-top">
+                <span class="stat-icon">🌡</span>
+                <span class="stat-range">Rango óptimo: 20-25°C</span>
+              </div>
+              <div class="stat-value" id="temp-amb-value">—</div>
+              <div class="stat-label">Temperatura Ambiente</div>
+            </article>
+            <article class="stat-card">
+              <div class="stat-top">
+                <span class="stat-icon">🔥</span>
+                <span class="stat-range">Rango óptimo: 25-35°C</span>
+              </div>
+              <div class="stat-value" id="temp-bio-value">—</div>
+              <div class="stat-label">Temperatura Biorreactor</div>
+            </article>
+            <article class="stat-card">
+              <div class="stat-top">
+                <span class="stat-icon">💧</span>
+                <span class="stat-range">Rango óptimo: 60-70%</span>
+              </div>
+              <div class="stat-value" id="humidity-value">—</div>
+              <div class="stat-label">Humedad Ambiente</div>
+            </article>
+          </div>
+
+          <div class="monitor-meta">
+            <div><strong>Última actualización</strong><span id="last-updated">—</span></div>
+            <div><strong>ID de sesión</strong><span id="current-session">Sesión #0</span></div>
+          </div>
+        </section>
+
+        <section id="alerts-section" class="section">
+          <div class="alerts-panel" id="alerts-list"></div>
+        </section>
+
+        <section id="history-section" class="section">
+          <div class="history-actions">
+            <button type="button" data-count="20" class="history-button active">Últimas 20</button>
+            <button type="button" data-count="50" class="history-button">Últimas 50</button>
+            <button type="button" data-count="100" class="history-button">Últimas 100</button>
+          </div>
+          <div class="history-card">
+            <div class="chart-container">
+              <canvas id="history-chart"></canvas>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <nav class="bottom-nav">
+        <button class="tab-button active" data-section="monitor">📊 Monitor</button>
+        <button class="tab-button" data-section="alerts">🔔 Alertas <span id="alerts-badge" class="tab-badge hidden">0</span></button>
+        <button class="tab-button" data-section="history">📈 Historial</button>
+      </nav>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+      const AppState = {
+        currentSection: 'monitor',
+        latestReading: null,
+        currentSession: 0,
+        alerts: [],
+        history: [],
+        polling: false,
+        historySize: 20,
+      };
+
+      const sessionLabel = document.getElementById('session-label');
+      const currentSessionLabel = document.getElementById('current-session');
+      const lastUpdatedLabel = document.getElementById('last-updated');
+      const tempAmbValue = document.getElementById('temp-amb-value');
+      const tempBioValue = document.getElementById('temp-bio-value');
+      const humidityValue = document.getElementById('humidity-value');
+      const alertsList = document.getElementById('alerts-list');
+      const alertsBadge = document.getElementById('alerts-badge');
+      const sectionMonitor = document.getElementById('monitor-section');
+      const sectionAlerts = document.getElementById('alerts-section');
+      const sectionHistory = document.getElementById('history-section');
+      const tabButtons = document.querySelectorAll('.tab-button');
+      const historyButtons = document.querySelectorAll('.history-button');
+
+      let historyChart;
+      let pollingTimer;
+
+      function formatTimestamp(ts) {
+        const date = ts ? new Date(ts) : new Date();
+        return date.toLocaleString('es-ES', {
+          dateStyle: 'short',
+          timeStyle: 'medium'
+        });
+      }
+
+      function formatHour(ts) {
+        const date = new Date(ts);
+        return date.toLocaleTimeString('es-ES', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+
+      function getValueColor(value, min, max) {
+        if (value === null || value === undefined || Number.isNaN(value)) {
+          return 'var(--text)';
+        }
+
+        const lowerAlert = min - 5;
+        const upperAlert = max + 5;
+        if (value < lowerAlert || value > upperAlert) {
+          return 'var(--danger)';
+        }
+        if (value < min || value > max) {
+          return 'var(--warning)';
+        }
+        return 'var(--success)';
+      }
+
+
+      function renderSection(section) {
+        sectionMonitor.classList.toggle('active', section === 'monitor');
+        sectionAlerts.classList.toggle('active', section === 'alerts');
+        sectionHistory.classList.toggle('active', section === 'history');
+        tabButtons.forEach(button => button.classList.toggle('active', button.dataset.section === section));
+        AppState.currentSection = section;
+
+        if (section === 'monitor') {
+          renderMonitor();
+        } else if (section === 'alerts') {
+          renderAlerts();
+        } else if (section === 'history') {
+          renderHistory();
+        }
+      }
+
+      function renderMonitor() {
+        const latest = AppState.latestReading;
+        if (!latest) {
+          tempAmbValue.textContent = 'Cargando...';
+          tempBioValue.textContent = 'Cargando...';
+          humidityValue.textContent = 'Cargando...';
+          lastUpdatedLabel.textContent = 'Esperando datos...';
+          currentSessionLabel.textContent = 'Sesión #0';
+          sessionLabel.textContent = 'Sesión #0';
+          return;
+        }
+
+        tempAmbValue.textContent = `${latest.temperaturaAmbiente.toFixed(1)}°C`;
+        tempAmbValue.style.color = getValueColor(latest.temperaturaAmbiente, 20, 25);
+
+        tempBioValue.textContent = `${latest.temperaturaBiorreactor.toFixed(1)}°C`;
+        tempBioValue.style.color = getValueColor(latest.temperaturaBiorreactor, 25, 35);
+
+        humidityValue.textContent = `${latest.humedadAmbiente.toFixed(1)}%`;
+        humidityValue.style.color = getValueColor(latest.humedadAmbiente, 60, 70);
+
+        lastUpdatedLabel.textContent = formatTimestamp(latest.timestamp);
+        currentSessionLabel.textContent = `Sesión #${latest.sessionID}`;
+        sessionLabel.textContent = `Sesión #${latest.sessionID}`;
+      }
+
+      function renderAlerts() {
+        const alerts = AppState.alerts.slice().reverse();
+        if (!alerts.length) {
+          alertsList.innerHTML = '<div class="empty-state">Sin alertas por el momento. El sistema sigue monitoreando en vivo.</div>';
+          return;
+        }
+
+        alertsList.innerHTML = alerts.map(alert => `
+          <article class="alert-card">
+            <div class="alert-top">
+              <h3 class="alert-title">${alert.titulo}</h3>
+              <span class="badge ${alert.severity === 'CRÍTICO' ? 'critical' : 'attention'}">${alert.severity}</span>
+            </div>
+            <div class="alert-meta">
+              <span>${alert.mensaje}</span>
+              <span>${formatTimestamp(alert.timestamp)}</span>
+              <span>Valor: ${alert.valor}</span>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      function renderHistory() {
+        const history = AppState.history || [];
+        if (!history.length) {
+          if (historyChart) {
+            historyChart.data.labels = [];
+            historyChart.data.datasets.forEach(ds => ds.data = []);
+            historyChart.update();
+          }
+          return;
+        }
+
+        const labels = history.map(entry => formatHour(entry.timestamp));
+        const tempAmbient = history.map(entry => entry.temperaturaAmbiente);
+        const tempBio = history.map(entry => entry.temperaturaBiorreactor);
+        const humidity = history.map(entry => entry.humedadAmbiente);
+
+        if (!historyChart) {
+          const ctx = document.getElementById('history-chart').getContext('2d');
+          historyChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [
+                {
+                  label: 'Temperatura Ambiente °C',
+                  data: tempAmbient,
+                  borderColor: '#ef4444',
+                  backgroundColor: 'rgba(239, 68, 68, 0.18)',
+                  yAxisID: 'y1',
+                  tension: 0.3,
+                  fill: true,
+                },
+                {
+                  label: 'Temperatura Biorreactor °C',
+                  data: tempBio,
+                  borderColor: '#f97316',
+                  backgroundColor: 'rgba(249, 115, 22, 0.18)',
+                  yAxisID: 'y1',
+                  tension: 0.3,
+                  fill: true,
+                },
+                {
+                  label: 'Humedad %',
+                  data: humidity,
+                  borderColor: '#3b82f6',
+                  backgroundColor: 'rgba(59, 130, 246, 0.18)',
+                  yAxisID: 'y2',
+                  tension: 0.3,
+                  fill: true,
+                },
+              ]
+            },
+            options: {
+              responsive: true,
+              interaction: {
+                mode: 'nearest',
+                intersect: false,
+              },
+              plugins: {
+                legend: { labels: { color: 'rgba(230,238,246,0.9)' } }
+              },
+              scales: {
+                x: {
+                  ticks: { color: 'rgba(230,238,246,0.8)' },
+                  grid: { color: 'rgba(255,255,255,0.06)' }
+                },
+                y1: {
+                  position: 'left',
+                  title: { display: true, text: 'Temperatura (°C)', color: 'rgba(230,238,246,0.9)' },
+                  ticks: { color: 'rgba(230,238,246,0.8)' },
+                  grid: { color: 'rgba(255,255,255,0.06)' }
+                },
+                y2: {
+                  position: 'right',
+                  title: { display: true, text: 'Humedad (%)', color: 'rgba(230,238,246,0.9)' },
+                  min: 0,
+                  max: 100,
+                  ticks: { color: 'rgba(230,238,246,0.8)' },
+                  grid: { drawOnChartArea: false, color: 'rgba(255,255,255,0.06)' }
+                }
+              }
+            }
+          });
+        } else {
+          historyChart.data.labels = labels;
+          historyChart.data.datasets[0].data = tempAmbient;
+          historyChart.data.datasets[1].data = tempBio;
+          historyChart.data.datasets[2].data = humidity;
+          historyChart.update();
+        }
+      }
+
+      function pushAlert(alert) {
+        AppState.alerts.push(alert);
+        if (AppState.alerts.length > 50) {
+          AppState.alerts.splice(0, AppState.alerts.length - 50);
+        }
+
+        const hasNew = AppState.alerts.some(a => a.severity === 'CRÍTICO');
+        alertsBadge.textContent = AppState.alerts.length;
+        alertsBadge.classList.toggle('hidden', false);
+        alertsBadge.style.background = hasNew ? 'var(--danger)' : 'var(--warning)';
+      }
+
+      function hasRecentAlert(title, valor) {
+        return AppState.alerts.some(alert => alert.titulo === title && alert.valor === valor && Date.now() - new Date(alert.timestamp) < 15000);
+      }
+
+      function checkAndGenerateAlerts(reading) {
+        if (!reading) {
+          return;
+        }
+
+        const now = new Date().toISOString();
+
+        if (reading.humedadAmbiente > 90 && !hasRecentAlert('Humedad alta', `${reading.humedadAmbiente}%`)) {
+          pushAlert({
+            tipo: 'humedad',
+            titulo: 'Humedad alta',
+            mensaje: 'La humedad ambiente supera el 90%.',
+            severidad: 'ATENCIÓN',
+            timestamp: now,
+            valor: `${reading.humedadAmbiente.toFixed(1)}%`
+          });
+        }
+
+        if (reading.humedadAmbiente < 40 && !hasRecentAlert('Humedad baja', `${reading.humedadAmbiente}%`)) {
+          pushAlert({
+            tipo: 'humedad',
+            titulo: 'Humedad baja',
+            mensaje: 'La humedad ambiente está por debajo del 40%.',
+            severidad: 'ATENCIÓN',
+            timestamp: now,
+            valor: `${reading.humedadAmbiente.toFixed(1)}%`
+          });
+        }
+
+        if (reading.temperaturaAmbiente > 40 && !hasRecentAlert('Temperatura ambiente crítica', `${reading.temperaturaAmbiente}°C`)) {
+          pushAlert({
+            tipo: 'temperaturaAmbiente',
+            titulo: 'Temperatura ambiente crítica',
+            mensaje: 'La temperatura ambiente supera los 40°C.',
+            severidad: 'CRÍTICO',
+            timestamp: now,
+            valor: `${reading.temperaturaAmbiente.toFixed(1)}°C`
+          });
+        } else if (reading.temperaturaAmbiente > 35 && !hasRecentAlert('Temperatura ambiente alta', `${reading.temperaturaAmbiente}°C`)) {
+          pushAlert({
+            tipo: 'temperaturaAmbiente',
+            titulo: 'Temperatura ambiente alta',
+            mensaje: 'La temperatura ambiente supera los 35°C.',
+            severidad: 'ATENCIÓN',
+            timestamp: now,
+            valor: `${reading.temperaturaAmbiente.toFixed(1)}°C`
+          });
+        }
+
+        if (reading.temperaturaBiorreactor > 45 && !hasRecentAlert('Temperatura biorreactor crítica', `${reading.temperaturaBiorreactor}°C`)) {
+          pushAlert({
+            tipo: 'temperaturaBiorreactor',
+            titulo: 'Temperatura biorreactor crítica',
+            mensaje: 'La temperatura del biorreactor supera los 45°C.',
+            severidad: 'CRÍTICO',
+            timestamp: now,
+            valor: `${reading.temperaturaBiorreactor.toFixed(1)}°C`
+          });
+        } else if (reading.temperaturaBiorreactor > 40 && !hasRecentAlert('Temperatura biorreactor alta', `${reading.temperaturaBiorreactor}°C`)) {
+          pushAlert({
+            tipo: 'temperaturaBiorreactor',
+            titulo: 'Temperatura biorreactor alta',
+            mensaje: 'La temperatura del biorreactor supera los 40°C.',
+            severidad: 'ATENCIÓN',
+            timestamp: now,
+            valor: `${reading.temperaturaBiorreactor.toFixed(1)}°C`
+          });
+        }
+      }
+
+      async function updateDashboard() {
+        try {
+          const feeds = await fetchThingSpeak(AppState.historySize);
+          if (!feeds.length) {
+            return;
+          }
+
+          const latest = feeds[feeds.length - 1];
+          AppState.latestReading = latest;
+          AppState.currentSession = latest.sessionID;
+          AppState.history = feeds;
+
+          renderMonitor();
+          checkAndGenerateAlerts(latest);
+          if (AppState.currentSection === 'alerts') {
+            renderAlerts();
+          }
+          if (AppState.currentSection === 'history') {
+            renderHistory();
+          }
+        } catch (error) {
+          console.error('Error actualizando datos:', error);
+        }
+      }
+
+      async function startPolling() {
+        AppState.polling = true;
+        await updateDashboard();
+        pollingTimer = setInterval(updateDashboard, 15000);
+      }
+
+      function setHistorySize(count) {
+        AppState.historySize = count;
+        historyButtons.forEach(button => button.classList.toggle('active', Number(button.dataset.count) === count));
+        updateDashboard();
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        tabButtons.forEach(button => {
+          button.addEventListener('click', () => renderSection(button.dataset.section));
+        });
+
+        historyButtons.forEach(button => {
+          button.addEventListener('click', () => setHistorySize(Number(button.dataset.count)));
+        });
+
+        renderMonitor();
+        renderAlerts();
+        renderHistory();
+        startPolling();
+      });
+    </script>
+  </body>
+</html>
